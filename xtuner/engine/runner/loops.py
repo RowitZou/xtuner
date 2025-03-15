@@ -3,6 +3,7 @@ from typing import Dict, Optional, Union
 
 from mmengine.runner import IterBasedTrainLoop
 from torch.utils.data import DataLoader
+from .data_loader import build_dataloader
 
 
 class TrainLoop(IterBasedTrainLoop):
@@ -31,7 +32,7 @@ class TrainLoop(IterBasedTrainLoop):
             elif max_epochs is not None:
                 if isinstance(dataloader, dict):
                     diff_rank_seed = runner._randomness_cfg.get("diff_rank_seed", False)
-                    dataloader = runner.build_dataloader(
+                    dataloader = build_dataloader(
                         dataloader, seed=runner.seed, diff_rank_seed=diff_rank_seed
                     )
                 iters = max_epochs * len(dataloader)

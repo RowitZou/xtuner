@@ -6,6 +6,7 @@ from functools import partial
 
 import numpy as np
 from datasets import DatasetDict, concatenate_datasets
+from datasets.dataset_dict import IterableDatasetDict
 from mmengine import print_log
 from mmengine.config import Config, ConfigDict
 from mmengine.utils.misc import get_object_from_string
@@ -32,7 +33,7 @@ def build_origin_dataset(dataset, split):
         or isinstance(dataset, ConfigDict)
     ):
         dataset = BUILDER.build(dataset)
-        if isinstance(dataset, DatasetDict):
+        if isinstance(dataset, DatasetDict) or isinstance(dataset, IterableDatasetDict):
             if split is None:
                 dataset = concatenate_datasets(dataset.values())
             else:
