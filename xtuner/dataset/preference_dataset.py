@@ -249,6 +249,7 @@ class PreferenceDatasetRMP(IterableDataset):
         data_num: int = 0,
         rank: Optional[int] = None,
         world_size: Optional[int] = None,
+        use_varlen_attn: bool = False,
     ) -> None:
 
         super().__init__()
@@ -265,17 +266,33 @@ class PreferenceDatasetRMP(IterableDataset):
         self.data_num = data_num
         self.dataset = dataset
         self.tokenizer = tokenizer
+        self.use_varlen_attn = use_varlen_attn
 
         # 如果没传 rank/world_size，默认 single-process 模式
         self.rank = 0 if rank is None else rank
         self.world_size = 1 if world_size is None else world_size
 
     def __len__(self):
-        return self.data_num // self.world_size
+        return self.data_num // self.world_size if not self.use_varlen_attn else self.data_num
 
     def __iter__(self):
-        for i, data in enumerate(self.dataset):
-            if (i % self.world_size) == self.rank:
+
+        if not self.use_varlen_attn:
+            # 保证所有节点同时结束
+            buffer = []
+            for i, data in enumerate(self.dataset):
+                buffer.append(data)
+                if len(buffer) >= self.world_size:
+                    yield tokenize_rmp(
+                        buffer[self.rank],
+                        tokenizer=self.tokenizer,
+                        max_length=self.max_length,
+                        is_reward=self.is_reward,
+                        reward_token_id=self.reward_token_id,
+                    )
+                    buffer = []
+        else:
+            for data in self.dataset:
                 yield tokenize_rmp(
                     data,
                     tokenizer=self.tokenizer,
@@ -369,15 +386,21 @@ class PackedDatasetWrapperRMP(IterableDataset):
         self,
         dataset,              # 这里应该是一个可迭代的数据源，或另一个 IterableDataset
         max_packed_length=16384,
+        rank: Optional[int] = None,
+        world_size: Optional[int] = None,
     ):
         super().__init__()
         self.dataset = dataset
         self.max_packed_length = max_packed_length
 
+        # 如果没传 rank/world_size，默认 single-process 模式
+        self.rank = 0 if rank is None else rank
+        self.world_size = 1 if world_size is None else world_size
+
         # hard coded!  # noqa
         self.avg_num_per_pack = 4  # max_packed_length / 6500
 
-        self.data_num = len(dataset) // self.avg_num_per_pack
+        self.data_num = len(dataset) // (self.avg_num_per_pack * self.world_size)
 
     def __len__(self):
         return self.data_num
@@ -387,6 +410,7 @@ class PackedDatasetWrapperRMP(IterableDataset):
         边读边打包，将若干条数据拼接成一个“bin”，
         一旦长度超过上限，就 yield 当前 bin 并开启新 bin。
         """
+        bin_buffer = []
         data_bin = []
         bin_seq_len = 0
         skipped = 0  # 用于统计有多少样本因为过长被直接跳过
@@ -403,7 +427,12 @@ class PackedDatasetWrapperRMP(IterableDataset):
 
             # 如果当前 bin + 新样本会超限，则先把已有 bin 产出
             if (bin_seq_len + cur_len) > self.max_packed_length and len(data_bin) > 0:
-                yield self._convert_bin_to_dict(data_bin)
+                bin_buffer.append(data_bin)
+
+                if len(bin_buffer) >= self.world_size:
+                    # 如果 bin_buffer 已经积累到一定数量，就产出
+                    yield self._convert_bin_to_dict(bin_buffer[self.rank])
+                    bin_buffer = []
                 # 重置 bin
                 data_bin = []
                 bin_seq_len = 0
@@ -414,7 +443,13 @@ class PackedDatasetWrapperRMP(IterableDataset):
 
         # 2. 所有数据读取完后，如果 bin 里仍有数据，最终再产出一次
         if len(data_bin) > 0:
-            yield self._convert_bin_to_dict(data_bin)
+            bin_buffer.append(data_bin)
+        if len(bin_buffer) >= self.world_size:
+            yield self._convert_bin_to_dict(bin_buffer[self.rank])
+            bin_buffer = []
+
+        if len(bin_buffer) > 0:
+            skipped += len(bin_buffer)
 
         # 3. 如果需要，可以在最后打印或记录被跳过的样本数（可选）
         if skipped > 0:
@@ -603,12 +638,15 @@ def build_preference_dataset_rmp(
         reward_token_id=reward_token_id,
         data_num=data_num,
         rank=rank,
-        world_size=world_size
+        world_size=world_size,
+        use_varlen_attn=use_varlen_attn,
     )
     if use_varlen_attn:
         tokenized_ds = PackedDatasetWrapperRMP(
             dataset=tokenized_ds,
             max_packed_length=max_packed_length,
+            rank=rank,
+            world_size=world_size
         )
     return tokenized_ds
 

@@ -120,10 +120,15 @@ class RewardModel(BaseModel):
         with LoadWoInit():
             if isinstance(llm, dict):
                 llm = self._dispatch_lm_model_cfg(llm, max_position_embeddings)
-            self.llm = self._build_from_cfg_or_module(llm).model
-            self.v_head = nn.Linear(self.llm.config.hidden_size, 1, bias=False)
-            # zero init
-            self.v_head.weight.data.zero_()
+            _model_llm = self._build_from_cfg_or_module(llm)
+            self.llm = _model_llm.model
+
+            if hasattr(_model_llm, "v_head"):
+                self.v_head = _model_llm.v_head
+            else:
+                self.v_head = nn.Linear(self.llm.config.hidden_size, 1, bias=False)
+                # zero init
+                self.v_head.weight.data.zero_()
 
         self.reward_token_id = reward_token_id
         assert loss_type in ("ranking", "focal"), f"Unsupported loss type {loss_type}"

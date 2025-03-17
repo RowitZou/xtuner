@@ -1,12 +1,13 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from typing import Dict, Optional, Union
 
-from mmengine.runner import IterBasedTrainLoop
+# from mmengine.runner import IterBasedTrainLoop
+from .train_loop_epoch import IterBasedTrainLoopStream
 from torch.utils.data import DataLoader
 from .data_loader import build_dataloader
 
 
-class TrainLoop(IterBasedTrainLoop):
+class TrainLoop(IterBasedTrainLoopStream):
     def __init__(
         self,
         runner,

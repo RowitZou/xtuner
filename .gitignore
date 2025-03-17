@@ -122,3 +122,6 @@ work_dirs/
 # srun
 *.out
 batchscript-*
+
+# addr
+addr/
