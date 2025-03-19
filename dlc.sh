@@ -6,7 +6,7 @@ export HOME="/cpfs01/shared/llm_ddd/zouyicheng/"
 
 
 function commit {
-    num_nodes=2
+    num_nodes=8
     name="xtuner-train-rm"
     num_tasks_per_node=1
     node_cpus=96

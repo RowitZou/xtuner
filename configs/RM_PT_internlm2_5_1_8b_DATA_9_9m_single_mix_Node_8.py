@@ -13,7 +13,7 @@ from torch.optim import AdamW
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from xtuner.dataset.collate_fns.preference_collate_fn import preference_collate_fn
-from xtuner.dataset.preference_dataset import build_preference_dataset_rmp
+from xtuner.dataset.preference_dataset import build_preference_dataset_stream
 from xtuner.engine.hooks import VarlenAttnArgsToMessageHubHook
 from xtuner.engine.runner import TrainLoop
 from xtuner.model.reward import RewardModel
@@ -24,7 +24,7 @@ from xtuner.parallel.sequence import SequenceParallelSampler
 #######################################################################
 # Model
 pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/liushichun1/models/internlm2_5-1_8b"
-use_varlen_attn = False
+use_varlen_attn = True
 reward_token_id = 92527  # use [UNUSED_TOKEN_130] as reward token
 loss_type = "ranking"
 penalty_type = "none"
@@ -32,15 +32,15 @@ penalty_type = "none"
 # Data
 max_length = 12000
 max_packed_length = 32768
-data_path = "/cpfs01/shared/llm_ddd/liushichun1/data/rm_pretrain/0217_10m_mix_pretrain_chat/single/ddm/100k"
-data_num = 100000
+data_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/data/train/p_1~99_chat_1~2"
+data_num = 9995996
 
 # parallel
 sequence_parallel_size = 1
 
 # Scheduler & Optimizer
-batch_size = 4  # per_device
-accumulative_counts = 4
+batch_size = 1  # per_device
+accumulative_counts = 1
 accumulative_counts *= sequence_parallel_size
 dataloader_num_workers = 0
 max_epochs = 1  # reward model should not be trained for more than 1 epoch to avoid overfitting  # noqa: E501
@@ -52,8 +52,8 @@ max_norm = 1  # grad clip
 warmup_ratio = 0.03
 
 # Save
-save_steps = 500
-save_total_limit = 2  # Maximum checkpoints to keep (-1 means unlimited)
+save_steps = 100
+save_total_limit = 5  # Maximum checkpoints to keep (-1 means unlimited)
 
 # Evaluate the generation performance during the training
 # TODO: eval
@@ -87,7 +87,7 @@ model = dict(
 sampler = SequenceParallelSampler if sequence_parallel_size > 1 else DefaultSampler
 
 train_dataset = dict(
-    type=build_preference_dataset_rmp,
+    type=build_preference_dataset_stream,
     dataset=dict(
         type=load_dataset,
         path=data_path,
