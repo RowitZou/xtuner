@@ -9,6 +9,7 @@ from mmengine.hooks import (
     ParamSchedulerHook,
 )
 from mmengine.optim import AmpOptimWrapper, CosineAnnealingLR, LinearLR
+from mmengine.visualization import Visualizer, TensorboardVisBackend
 from torch.optim import AdamW
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -23,7 +24,7 @@ from xtuner.parallel.sequence import SequenceParallelSampler
 #                          PART 1  Settings                           #
 #######################################################################
 # Model
-pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/liushichun1/models/internlm2_5-1_8b"
+pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/liushichun1/models/internlm2_5-7b"
 use_varlen_attn = True
 reward_token_id = 92527  # use [UNUSED_TOKEN_130] as reward token
 loss_type = "ranking"
@@ -32,8 +33,8 @@ penalty_type = "none"
 # Data
 max_length = 12000
 max_packed_length = 32768
-data_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/data/train/p_1~99_chat_1~2"
-data_num = 9995996
+data_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/data/train"
+data_num = 40595996
 
 # parallel
 sequence_parallel_size = 1
@@ -190,7 +191,10 @@ env_cfg = dict(
 )
 
 # set visualizer
-visualizer = None
+visualizer = dict(
+    type=Visualizer,
+    vis_backends=[dict(type=TensorboardVisBackend)]
+)
 
 # set log level
 log_level = "INFO"

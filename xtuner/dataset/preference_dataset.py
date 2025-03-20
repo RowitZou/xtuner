@@ -158,9 +158,15 @@ def tokenize_rmp(
     pair: str,
     tokenizer: AutoTokenizer,
     max_length: int,
+    max_response_length: int,
     is_reward: bool = False,
     reward_token_id: int = -1
 ):
+
+    max_length = max_length - 4  # for one RM token and two seperator tokens and one reward token
+    # get reward_token id and seperator token id
+    rm_token_id = tokenizer.convert_tokens_to_ids("<|reward|>")
+    sep_token_id = tokenizer.convert_tokens_to_ids("\n")
 
     prompt_ddm = "\n".join([e["content"] for e in (pair["prompt"])])
     reference_ddm = "\n".join([e["content"] for e in (pair["reference"])])
@@ -168,22 +174,55 @@ def tokenize_rmp(
     rejected_ddm = "\n".join([e["content"] for e in (pair["rejected"])])
     wrapper = pair['wrapper']
 
+    _prompt_ids = tokenizer.encode(prompt_ddm, add_special_tokens=True)
+    _reference_ids = tokenizer.encode(reference_ddm, add_special_tokens=True)
+    _chosen_ids = tokenizer.encode(chosen_ddm, add_special_tokens=True)
+    _rejected_ids = tokenizer.encode(rejected_ddm, add_special_tokens=True)
+
+    if len(_reference_ids) > max_response_length:
+        print_log(
+            f"sequence length {len(_reference_ids)} is "
+            f"larger than max_response_length {max_response_length}",
+            logger="current",
+        )
+        _reference_ids = _reference_ids[:max_response_length]
+    if len(_chosen_ids) > max_response_length:
+        print_log(
+            f"sequence length {len(_chosen_ids)} is "
+            f"larger than max_response_length {max_response_length}",
+            logger="current",
+        )
+        _chosen_ids = _chosen_ids[:max_response_length]
+    if len(_rejected_ids) > max_response_length:
+        print_log(
+            f"sequence length {len(_rejected_ids)} is "
+            f"larger than max_response_length {max_response_length}",
+            logger="current",
+        )
+        _rejected_ids = _rejected_ids[:max_response_length]
+
+    max_prompt_length = min((max_length - len(_reference_ids) - len(_chosen_ids)) // 2,
+                            (max_length - len(_reference_ids) - len(_rejected_ids)) // 2)
+
+    if len(_prompt_ids) > max_prompt_length:
+        print_log(
+            f"sequence length {len(_prompt_ids)} is "
+            f"larger than max_prompt_length {max_prompt_length}",
+            logger="current",
+        )
+        # _prompt_ids = _prompt_ids[:max_prompt_length]
+        # 这里的逻辑是为了保证 prompt 的长度不超过 max_prompt_length
+        # 但是如果直接截断，可能会导致语义不完整，所以这里选择保留最后 max_prompt_length 个 token
+        # 这样可以保证语义的完整性，同时也能满足长度的要求
+        _prompt_ids = _prompt_ids[-max_prompt_length:]
+
     # Fit the template of RMP
-    _reference = prompt_ddm + reference_ddm if wrapper == "pretrain" else prompt_ddm + "\n" + reference_ddm
-    _chosen = prompt_ddm + chosen_ddm if wrapper == "pretrain" else prompt_ddm + "\n" + chosen_ddm
-    _rejected = prompt_ddm + rejected_ddm if wrapper == "pretrain" else prompt_ddm + "\n" + rejected_ddm
+    _reference_cat_ids = _prompt_ids + _reference_ids if wrapper == "pretrain" else _prompt_ids + [sep_token_id] + _reference_ids
+    _chosen_cat_ids = _prompt_ids + _chosen_ids if wrapper == "pretrain" else _prompt_ids + [sep_token_id] + _chosen_ids
+    _rejected_cat_ids = _prompt_ids + _rejected_ids if wrapper == "pretrain" else _prompt_ids + [sep_token_id] + _rejected_ids
 
-    chosen = _reference + "<|reward|>" + _chosen
-    rejected = _reference + "<|reward|>" + _rejected
-
-    # false -> true
-    chosen_ids = tokenizer.encode(chosen, add_special_tokens=True)
-    rejected_ids = tokenizer.encode(rejected, add_special_tokens=True)
-
-    if len(chosen_ids) > max_length:
-        chosen_ids = chosen_ids[:max_length]
-    if len(rejected_ids) > max_length:
-        rejected_ids = rejected_ids[:max_length]
+    chosen_ids = _reference_cat_ids + [rm_token_id] + _chosen_cat_ids
+    rejected_ids = _reference_cat_ids + [rm_token_id] + _rejected_cat_ids
 
     if is_reward:
         # reward label
@@ -208,12 +247,14 @@ class PreferenceDataset(Dataset):
         dataset: HFDataset,
         tokenizer: AutoTokenizer,
         max_length: int,
+        max_response_length: int,
         is_dpo: bool = True,
         is_reward: bool = False,
         reward_token_id: int = -1,
         num_proc: int = 32,
     ) -> None:
         self.max_length = max_length
+        self.max_response_length = max_response_length
         assert is_dpo != is_reward, "Only one of is_dpo and is_reward can be True"
         if is_reward:
             assert (
@@ -230,6 +271,7 @@ class PreferenceDataset(Dataset):
                 tokenize_rmp,
                 tokenizer=tokenizer,
                 max_length=max_length,
+                max_response_length=max_response_length,
                 is_reward=is_reward,
                 reward_token_id=reward_token_id,
             ),
@@ -254,6 +296,7 @@ class PreferenceDatasetStream(IterableDataset):
         dataset: HFIterableDataset,
         tokenizer: AutoTokenizer,
         max_length: int,
+        max_response_length: int,
         is_dpo: bool = True,
         is_reward: bool = False,
         reward_token_id: int = -1,
@@ -265,6 +308,7 @@ class PreferenceDatasetStream(IterableDataset):
 
         super().__init__()
         self.max_length = max_length
+        self.max_response_length = max_response_length
         assert is_dpo != is_reward, "Only one of is_dpo and is_reward can be True"
         if is_reward:
             assert (
@@ -305,6 +349,7 @@ class PreferenceDatasetStream(IterableDataset):
                     data,
                     tokenizer=self.tokenizer,
                     max_length=self.max_length,
+                    max_response_length=self.max_response_length,
                     is_reward=self.is_reward,
                     reward_token_id=self.reward_token_id,
                 )
@@ -543,6 +588,7 @@ def build_preference_dataset(
     dataset: str,
     tokenizer: AutoTokenizer,
     max_length: int,
+    max_response_length: int,
     dataset_map_fn: Callable = None,
     is_dpo: bool = True,
     is_reward: bool = False,
@@ -570,6 +616,7 @@ def build_preference_dataset(
             dataset=dataset,
             tokenizer=tokenizer,
             max_length=max_length,
+            max_response_length=max_response_length,
             is_dpo=is_dpo,
             is_reward=is_reward,
             reward_token_id=reward_token_id,
@@ -589,6 +636,7 @@ def build_preference_dataset_stream(
     dataset: str,
     tokenizer: AutoTokenizer,
     max_length: int,
+    max_response_length: int,
     dataset_map_fn: Callable = None,
     is_dpo: bool = True,
     is_reward: bool = False,
@@ -624,6 +672,7 @@ def build_preference_dataset_stream(
         dataset=dataset,
         tokenizer=tokenizer,
         max_length=max_length,
+        max_response_length=max_response_length,
         is_dpo=is_dpo,
         is_reward=is_reward,
         reward_token_id=reward_token_id,

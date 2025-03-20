@@ -1,11 +1,11 @@
-nodes=8
+nodes=2
 
-config="RM_PT_internlm2_5_1_8b_DATA_9_9m_single_mix_Node_8"
+config="RM_SFT_reward_1_8b_DATA_HH_87k_Node_2_LR_9e_6"
 
 
 TARGET_FILE=/cpfs01/shared/llm_ddd/zouyicheng/xtuner/addr/addr_${name}.txt
 RANK=${RANK:-0}
-MASTER_PORT=6381
+MASTER_PORT=6382
 MASTER_ADDR=${MASTER_ADDR}
 echo "MASTER_ADDR: $MASTER_ADDR"
 

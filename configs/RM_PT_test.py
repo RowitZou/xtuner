@@ -9,11 +9,12 @@ from mmengine.hooks import (
     ParamSchedulerHook,
 )
 from mmengine.optim import AmpOptimWrapper, CosineAnnealingLR, LinearLR
+from mmengine.visualization import Visualizer, TensorboardVisBackend
 from torch.optim import AdamW
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from xtuner.dataset.collate_fns.preference_collate_fn import preference_collate_fn
-from xtuner.dataset.preference_dataset import build_preference_dataset_rmp
+from xtuner.dataset.preference_dataset import build_preference_dataset_stream
 from xtuner.engine.hooks import VarlenAttnArgsToMessageHubHook
 from xtuner.engine.runner import TrainLoop
 from xtuner.model.reward import RewardModel
@@ -30,17 +31,18 @@ loss_type = "ranking"
 penalty_type = "none"
 
 # Data
-max_length = 12000
+max_length = 32768
+max_response_length = 4096
 max_packed_length = 32768
-data_path = "/cpfs01/shared/llm_ddd/liushichun1/data/rm_pretrain/0217_10m_mix_pretrain_chat/single/ddm/10k"
-data_num = 10000
+data_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/data/train/p_1~99_chat_1~2"
+data_num = 9995996
 
 # parallel
 sequence_parallel_size = 1
 
 # Scheduler & Optimizer
 batch_size = 1  # per_device
-accumulative_counts = 4
+accumulative_counts = 1
 accumulative_counts *= sequence_parallel_size
 dataloader_num_workers = 0
 max_epochs = 1  # reward model should not be trained for more than 1 epoch to avoid overfitting  # noqa: E501
@@ -53,7 +55,7 @@ warmup_ratio = 0.03
 
 # Save
 save_steps = 100
-save_total_limit = 2  # Maximum checkpoints to keep (-1 means unlimited)
+save_total_limit = 5  # Maximum checkpoints to keep (-1 means unlimited)
 
 # Evaluate the generation performance during the training
 # TODO: eval
@@ -87,7 +89,7 @@ model = dict(
 sampler = SequenceParallelSampler if sequence_parallel_size > 1 else DefaultSampler
 
 train_dataset = dict(
-    type=build_preference_dataset_rmp,
+    type=build_preference_dataset_stream,
     dataset=dict(
         type=load_dataset,
         path=data_path,
@@ -95,6 +97,7 @@ train_dataset = dict(
     ),
     tokenizer=tokenizer,
     max_length=max_length,
+    max_response_length=max_response_length,
     dataset_map_fn=None,
     is_dpo=False,
     is_reward=True,
@@ -190,7 +193,10 @@ env_cfg = dict(
 )
 
 # set visualizer
-visualizer = None
+visualizer = dict(
+    type=Visualizer,
+    vis_backends=[dict(type=TensorboardVisBackend)]
+)
 
 # set log level
 log_level = "INFO"
