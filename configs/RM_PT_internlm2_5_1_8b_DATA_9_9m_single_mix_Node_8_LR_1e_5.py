@@ -32,7 +32,7 @@ penalty_type = "none"
 
 # Data
 max_length = 16384
-max_response_length = 4096
+max_response_length = 5120
 max_packed_length = 32768
 data_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/data/train/p_1~99_chat_1~2"
 data_num = 9995996

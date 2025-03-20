@@ -1,6 +1,6 @@
-nodes=2
+nodes=8
 
-config="RM_SFT_reward_1_8b_DATA_HH_87k_Node_2_LR_9e_6"
+config="RM_PT_internlm2_5_1_8b_DATA_9_9m_single_mix_Node_8_LR_1e_5"
 
 
 TARGET_FILE=/cpfs01/shared/llm_ddd/zouyicheng/xtuner/addr/addr_${name}.txt
