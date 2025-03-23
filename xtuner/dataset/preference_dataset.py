@@ -219,9 +219,9 @@ def tokenize_rmp(
     _rejected = tokenizer.decode(_rejected_ids, skip_special_tokens=True)
 
     # Fit the template of RMP
-    _reference_cat = _prompt + _reference if wrapper == "pretrain" else _prompt + "\n" + _reference
-    _chosen_cat = _prompt + _chosen if wrapper == "pretrain" else _prompt + "\n" + _chosen
-    _rejected_cat = _prompt + _rejected if wrapper == "pretrain" else _prompt + "\n" + _rejected
+    _reference_cat = _prompt + _reference if wrapper == "pretrain" or _reference == "" else _prompt + "\n" + _reference
+    _chosen_cat = _prompt + _chosen if wrapper == "pretrain" or _chosen == "" else _prompt + "\n" + _chosen
+    _rejected_cat = _prompt + _rejected if wrapper == "pretrain" or _rejected == "" else _prompt + "\n" + _rejected
 
     chosen = _reference_cat + "<|reward|>" + _chosen_cat
     rejected = _reference_cat + "<|reward|>" + _rejected_cat
