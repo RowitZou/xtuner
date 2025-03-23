@@ -24,7 +24,7 @@ from xtuner.parallel.sequence import SequenceParallelSampler
 #                          PART 1  Settings                           #
 #######################################################################
 # Model
-pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/liushichun1/models/internlm2_5-1_8b"
+pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/zouyicheng/xtuner/model/internlm2_5-1_8b"
 use_varlen_attn = True
 reward_token_id = 92527  # use [UNUSED_TOKEN_130] as reward token
 loss_type = "ranking"

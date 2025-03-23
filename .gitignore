@@ -125,3 +125,6 @@ batchscript-*
 
 # addr
 addr/
+
+# model
+model/

@@ -11,10 +11,10 @@ from mmengine.hooks import (
 from mmengine.optim import AmpOptimWrapper, CosineAnnealingLR, LinearLR
 from mmengine.visualization import Visualizer, TensorboardVisBackend
 from torch.optim import AdamW
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from xtuner.dataset.collate_fns.preference_collate_fn import preference_collate_fn
-from xtuner.dataset.preference_dataset import build_preference_dataset
+from xtuner.dataset.preference_dataset import build_preference_dataset_stream
 from xtuner.engine.hooks import VarlenAttnArgsToMessageHubHook
 from xtuner.engine.runner import TrainLoop
 from xtuner.model.reward import RewardModel
@@ -24,30 +24,31 @@ from xtuner.parallel.sequence import SequenceParallelSampler
 #                          PART 1  Settings                           #
 #######################################################################
 # Model
-pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/rm/RM_PT_internlm2_5_1_8b_DATA_9_9m_single_mix_Node_8_Step_32000_hf"
+pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/zouyicheng/xtuner/model/qwen2_5-1_5b"
 use_varlen_attn = True
-reward_token_id = 92527  # use [UNUSED_TOKEN_130] as reward token
+reward_token_id = 151649  # use [UNUSED_TOKEN_130] as reward token
 loss_type = "ranking"
 penalty_type = "none"
 
 # Data
 max_length = 16384
-max_response_length = 4096
+max_response_length = 5120
 max_packed_length = 32768
-data_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/data/preference/single_source_prompt_sft/processed/HH_87K"
-data_num = 87651
+data_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/data/train/p_1~99_chat_1~2"
+data_num = 9995996
 
 # parallel
 sequence_parallel_size = 1
 
 # Scheduler & Optimizer
 batch_size = 1  # per_device
-accumulative_counts = 2
+accumulative_counts = 1
 accumulative_counts *= sequence_parallel_size
 dataloader_num_workers = 0
 max_epochs = 1  # reward model should not be trained for more than 1 epoch to avoid overfitting  # noqa: E501
 optim_type = AdamW
-lr = 9e-6
+lr = 1e-5
+# lr = 9e-6
 betas = (0.9, 0.999)
 weight_decay = 0
 max_norm = 1  # grad clip
@@ -77,7 +78,7 @@ model = dict(
     loss_type=loss_type,
     penalty_type=penalty_type,
     llm=dict(
-        type=AutoModel.from_pretrained,
+        type=AutoModelForCausalLM.from_pretrained,
         pretrained_model_name_or_path=pretrained_model_name_or_path,
         trust_remote_code=True,
     ),
@@ -89,10 +90,11 @@ model = dict(
 sampler = SequenceParallelSampler if sequence_parallel_size > 1 else DefaultSampler
 
 train_dataset = dict(
-    type=build_preference_dataset,
+    type=build_preference_dataset_stream,
     dataset=dict(
         type=load_dataset,
         path=data_path,
+        streaming=True
     ),
     tokenizer=tokenizer,
     max_length=max_length,
@@ -105,13 +107,14 @@ train_dataset = dict(
     use_varlen_attn=use_varlen_attn,
     max_packed_length=max_packed_length,
     shuffle_before_pack=True,
+    data_num=data_num,
 )
 
 train_dataloader = dict(
     batch_size=batch_size,
+    drop_last=True,
     num_workers=dataloader_num_workers,
     dataset=train_dataset,
-    sampler=dict(type=DefaultSampler, shuffle=True),
     collate_fn=dict(type=preference_collate_fn, use_varlen_attn=use_varlen_attn),
 )
 

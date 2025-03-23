@@ -20,9 +20,9 @@ function commit {
 
     cmd=". /cpfs01/shared/llm_ddd/zouyicheng/.bashrc && conda activate xtuner && \
 cd /cpfs01/shared/llm_ddd/zouyicheng/xtuner && PYTHONPATH=. python /cpfs01/shared/llm_ddd/zouyicheng/xtuner/xtuner/tools/model_converters/pth_to_hf.py \
-/cpfs01/shared/llm_ddd/zouyicheng/xtuner/work_dirs/RM_SFT_reward_1_8b_DATA_HH_87k_Node_2_LR_9e_6/RM_SFT_reward_1_8b_DATA_HH_87k_Node_2_LR_9e_6.py \
-/cpfs01/shared/llm_ddd/zouyicheng/xtuner/work_dirs/RM_SFT_reward_1_8b_DATA_HH_87k_Node_2_LR_9e_6/iter_657.pth  \
-/cpfs01/shared/llm_ddd/zouyicheng/xtuner/work_dirs/RM_SFT_reward_1_8b_DATA_HH_87k_Node_2_LR_9e_6/iter_657_hf"
+/cpfs01/shared/llm_ddd/zouyicheng/xtuner/work_dirs/RM_PT_qwen2_5_1_5b_DATA_9_9m_single_mix_Node_8_LR_1e_5/RM_PT_qwen2_5_1_5b_DATA_9_9m_single_mix_Node_8_LR_1e_5.py \
+/cpfs01/shared/llm_ddd/zouyicheng/xtuner/work_dirs/RM_PT_qwen2_5_1_5b_DATA_9_9m_single_mix_Node_8_LR_1e_5/iter_100.pth  \
+/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/rm/RM_PT_qwen2_5_1_5b_DATA_9_9m_single_mix_Node_8_LR_1e_5_STEP_100_hf"
 
     /cpfs01/shared/public/dlc create job --config /cpfs01/shared/public/zouyicheng/dlc.config \
     --name $name \

@@ -164,9 +164,6 @@ def tokenize_rmp(
 ):
 
     max_length = max_length - 4  # for one RM token and two seperator tokens and one reward token
-    # get reward_token id and seperator token id
-    rm_token_id = tokenizer.convert_tokens_to_ids("<|reward|>")
-    sep_token_id = tokenizer.convert_tokens_to_ids("\n")
 
     prompt_ddm = "\n".join([e["content"] for e in (pair["prompt"])])
     reference_ddm = "\n".join([e["content"] for e in (pair["reference"])])
@@ -216,13 +213,21 @@ def tokenize_rmp(
         # 这样可以保证语义的完整性，同时也能满足长度的要求
         _prompt_ids = _prompt_ids[-max_prompt_length:]
 
-    # Fit the template of RMP
-    _reference_cat_ids = _prompt_ids + _reference_ids if wrapper == "pretrain" else _prompt_ids + [sep_token_id] + _reference_ids
-    _chosen_cat_ids = _prompt_ids + _chosen_ids if wrapper == "pretrain" else _prompt_ids + [sep_token_id] + _chosen_ids
-    _rejected_cat_ids = _prompt_ids + _rejected_ids if wrapper == "pretrain" else _prompt_ids + [sep_token_id] + _rejected_ids
+    _prompt = tokenizer.decode(_prompt_ids, skip_special_tokens=True)
+    _reference = tokenizer.decode(_reference_ids, skip_special_tokens=True)
+    _chosen = tokenizer.decode(_chosen_ids, skip_special_tokens=True)
+    _rejected = tokenizer.decode(_rejected_ids, skip_special_tokens=True)
 
-    chosen_ids = _reference_cat_ids + [rm_token_id] + _chosen_cat_ids
-    rejected_ids = _reference_cat_ids + [rm_token_id] + _rejected_cat_ids
+    # Fit the template of RMP
+    _reference_cat = _prompt + _reference if wrapper == "pretrain" else _prompt + "\n" + _reference
+    _chosen_cat = _prompt + _chosen if wrapper == "pretrain" else _prompt + "\n" + _chosen
+    _rejected_cat = _prompt + _rejected if wrapper == "pretrain" else _prompt + "\n" + _rejected
+
+    chosen = _reference_cat + "<|reward|>" + _chosen_cat
+    rejected = _reference_cat + "<|reward|>" + _rejected_cat
+
+    chosen_ids = tokenizer.encode(chosen, add_special_tokens=True)
+    rejected_ids = tokenizer.encode(rejected, add_special_tokens=True)
 
     if is_reward:
         # reward label
