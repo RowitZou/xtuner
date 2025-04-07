@@ -11,10 +11,10 @@ from mmengine.hooks import (
 from mmengine.optim import AmpOptimWrapper, CosineAnnealingLR, LinearLR
 from mmengine.visualization import Visualizer, TensorboardVisBackend
 from torch.optim import AdamW
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModel, AutoTokenizer
 
 from xtuner.dataset.collate_fns.preference_collate_fn import preference_collate_fn
-from xtuner.dataset.preference_dataset import build_preference_dataset_stream
+from xtuner.dataset.preference_dataset import build_preference_dataset
 from xtuner.engine.hooks import VarlenAttnArgsToMessageHubHook
 from xtuner.engine.runner import TrainLoop
 from xtuner.model.reward import RewardModel
@@ -24,7 +24,8 @@ from xtuner.parallel.sequence import SequenceParallelSampler
 #                          PART 1  Settings                           #
 #######################################################################
 # Model
-pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/zouyicheng/xtuner/model/internlm2_5-1_8b"
+
+pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/zouyicheng/xtuner/work_dirs/RM_PT_internlm2_5_1_8b_DATA_20m_single_mix_Node_40_LR_9_1e_6_decay/iter_12900_hf"
 use_varlen_attn = True
 reward_token_id = 92527  # use [UNUSED_TOKEN_130] as reward token
 loss_type = "ranking"
@@ -32,31 +33,30 @@ penalty_type = "none"
 
 # Data
 max_length = 16384
-max_response_length = 5120
+max_response_length = 4096
 max_packed_length = 32768
-avg_num_per_pack = 5
-data_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/data/train"
-data_num = 142595996
+data_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/data/preference/single_source_prompt_sft/processed/HH_88K_blank_patch"
+data_num = 88130
 
 # parallel
 sequence_parallel_size = 1
 
 # Scheduler & Optimizer
 batch_size = 1  # per_device
-accumulative_counts = 1
+accumulative_counts = 2
 accumulative_counts *= sequence_parallel_size
 dataloader_num_workers = 0
 max_epochs = 1  # reward model should not be trained for more than 1 epoch to avoid overfitting  # noqa: E501
 optim_type = AdamW
-lr = 9.1e-5
-betas = (0.9, 0.95)
+lr = 9e-6
+betas = (0.9, 0.999)
 weight_decay = 0
 max_norm = 1  # grad clip
 warmup_ratio = 0.03
 
 # Save
 save_steps = 100
-save_total_limit = 10  # Maximum checkpoints to keep (-1 means unlimited)
+save_total_limit = 5  # Maximum checkpoints to keep (-1 means unlimited)
 
 # Evaluate the generation performance during the training
 # TODO: eval
@@ -78,7 +78,7 @@ model = dict(
     loss_type=loss_type,
     penalty_type=penalty_type,
     llm=dict(
-        type=AutoModelForCausalLM.from_pretrained,
+        type=AutoModel.from_pretrained,
         pretrained_model_name_or_path=pretrained_model_name_or_path,
         trust_remote_code=True,
     ),
@@ -90,11 +90,10 @@ model = dict(
 sampler = SequenceParallelSampler if sequence_parallel_size > 1 else DefaultSampler
 
 train_dataset = dict(
-    type=build_preference_dataset_stream,
+    type=build_preference_dataset,
     dataset=dict(
         type=load_dataset,
         path=data_path,
-        streaming=True
     ),
     tokenizer=tokenizer,
     max_length=max_length,
@@ -106,16 +105,14 @@ train_dataset = dict(
     num_proc=32,
     use_varlen_attn=use_varlen_attn,
     max_packed_length=max_packed_length,
-    avg_num_per_pack=avg_num_per_pack,
     shuffle_before_pack=True,
-    data_num=data_num,
 )
 
 train_dataloader = dict(
     batch_size=batch_size,
-    drop_last=True,
     num_workers=dataloader_num_workers,
     dataset=train_dataset,
+    sampler=dict(type=DefaultSampler, shuffle=True),
     collate_fn=dict(type=preference_collate_fn, use_varlen_attn=use_varlen_attn),
 )
 
@@ -137,7 +134,7 @@ optim_wrapper = dict(
 param_scheduler = [
     dict(
         type=LinearLR,
-        start_factor=lr * 0.1,
+        start_factor=1e-5,
         by_epoch=True,
         begin=0,
         end=warmup_ratio * max_epochs,
@@ -145,7 +142,7 @@ param_scheduler = [
     ),
     dict(
         type=CosineAnnealingLR,
-        eta_min=lr * 0.1,
+        eta_min=0.0,
         by_epoch=True,
         begin=warmup_ratio * max_epochs,
         end=max_epochs,

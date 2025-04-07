@@ -7,11 +7,11 @@ export HOME="/cpfs01/shared/llm_ddd/zouyicheng/"
 
 function commit {
     num_nodes=2
-    name="xtuner-train-rm"
+    name="xtuner-train-rm-internlm2_5"
     num_tasks_per_node=1
     node_cpus=96
     num_gpus=8
-    node_mems=1024Gi
+    node_mems=1280Gi
 
     cmd=". /cpfs01/shared/llm_ddd/zouyicheng/.bashrc && conda activate xtuner && \
     cd /cpfs01/shared/llm_ddd/zouyicheng/xtuner && \
@@ -25,7 +25,7 @@ function commit {
     --worker_cpu $node_cpus \
     --worker_gpu $num_gpus \
     --worker_memory $node_mems \
-    --workspace_id ws1ujefpjyfgqjwp \
+    --workspace_id ws1lu4iyv5yjjyvp \
     --data_sources data1ewbw1ztmmyh,data1bgvj0n14to0,datasnlgjr5gyk0c,data1ubhj4714msc,data9qbxtzsqaa1f \
     --worker_image pjlab-shanghai-acr-registry-vpc.cn-shanghai.cr.aliyuncs.com/pjlab-eflops/lishuaibin:lishuaibin-xpuyu-trainrlhf \
     --worker_shared_memory 128Gi \

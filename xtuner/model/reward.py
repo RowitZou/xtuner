@@ -53,6 +53,15 @@ def reduce_mean(tensor):
     return tensor
 
 
+def reduce_sum(tensor):
+    """Obtain the mean of tensor on different GPUs."""
+    if not (dist.is_available() and dist.is_initialized()):
+        return tensor
+    tensor = tensor.clone()
+    dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
+    return tensor
+
+
 def smart_tokenizer_and_embedding_resize(
     tokenizer: PreTrainedTokenizer,
     model: PreTrainedModel,
@@ -388,7 +397,7 @@ class RewardModel(BaseModel):
         acc = reduce_mean(
             (chosen_logits > rejected_logits).sum() / num_samples
         ).detach()
-        num_tokens = torch.tensor(labels.shape[1]).float()
+        num_tokens = torch.tensor(labels.shape[1]).float().to(hidden_states.device)
 
         # ranking loss
         if self.loss_type == "ranking":
@@ -420,13 +429,17 @@ class RewardModel(BaseModel):
             raise NotImplementedError(f"Unsupported penalty type {self.penalty_type}")
 
         loss = rank_loss + self.penalty_weight * penalty
+        loss_reduced = reduce_mean(loss.mean().detach())
+        num_samples_reduced = reduce_sum(num_samples.detach())
+        num_tokens_reduced = reduce_sum(num_tokens.detach())
         loss_dict = {
             "loss": loss,
+            "reduced_loss": loss_reduced,
             "acc": acc,
             "chosen_score_mean": chosen_mean,
             "rejected_score_mean": rejected_mean,
-            "num_samples": num_samples,
-            "num_tokens": num_tokens,
+            "num_samples": num_samples_reduced,
+            "num_tokens": num_tokens_reduced,
         }
 
         return loss_dict

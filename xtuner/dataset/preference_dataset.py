@@ -444,13 +444,14 @@ class PackedDatasetWrapperStream(IterableDataset):
         self,
         dataset,              # 这里应该是一个可迭代的数据源，或另一个 IterableDataset
         max_packed_length=16384,
+        avg_num_per_pack=5,
     ):
         super().__init__()
         self.dataset = dataset
         self.max_packed_length = max_packed_length
 
         # hard coded!  # noqa
-        self.avg_num_per_pack = 4  # max_packed_length / 6500
+        self.avg_num_per_pack = avg_num_per_pack
 
         self.data_num = len(dataset) // self.avg_num_per_pack
 
@@ -649,6 +650,7 @@ def build_preference_dataset_stream(
     num_proc: int = 32,
     use_varlen_attn: bool = False,
     max_packed_length: int = 16384,
+    avg_num_per_pack: int = 5,
     shuffle_before_pack: bool = True,
     data_num: int = 0,
 ) -> Dataset:
@@ -690,6 +692,7 @@ def build_preference_dataset_stream(
         tokenized_ds = PackedDatasetWrapperStream(
             dataset=tokenized_ds,
             max_packed_length=max_packed_length,
+            avg_num_per_pack=avg_num_per_pack,
         )
     return tokenized_ds
 

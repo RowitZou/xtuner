@@ -1,9 +1,9 @@
 nodes=2
 
-config="RM_SFT_reward_pt_1_8b_DATA_HH_88k_blank_patch_Node_2_LR_9e_6"
+config="RM_PT_test"
 
 
-TARGET_FILE=/cpfs01/shared/llm_ddd/zouyicheng/xtuner/addr/addr_${name}.txt
+TARGET_FILE=/cpfs01/shared/llm_ddd/zouyicheng/xtuner/addr/addr_${config}.txt
 RANK=${RANK:-0}
 MASTER_PORT=6382
 MASTER_ADDR=${MASTER_ADDR}
@@ -18,12 +18,12 @@ if [ "$RANK" -eq 0 ]; then
     MASTER_ADDR=${MASTER_ADDR}
     echo "$MASTER_ADDR" > "$TARGET_FILE"
 
-    sleep 20
+    sleep 60
     
     NPROC_PER_NODE=8 NNODES=$nodes PORT=$MASTER_PORT ADDR=$MASTER_ADDR NODE_RANK=$RANK xtuner train /cpfs01/shared/llm_ddd/zouyicheng/xtuner/configs/$config.py --deepspeed deepspeed_zero1 
     
-else 
-    sleep 30
+else
+    sleep 70
     MASTER_ADDR=$(cat "$TARGET_FILE")
 
     echo "Starting worker node (RANK=${RANK}), connecting to ${MASTER_ADDR}:${MASTER_PORT}."

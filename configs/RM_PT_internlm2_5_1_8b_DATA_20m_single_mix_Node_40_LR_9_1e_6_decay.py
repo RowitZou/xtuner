@@ -8,10 +8,10 @@ from mmengine.hooks import (
     LoggerHook,
     ParamSchedulerHook,
 )
-from mmengine.optim import AmpOptimWrapper, CosineAnnealingLR, LinearLR
+from mmengine.optim import AmpOptimWrapper, CosineAnnealingLR
 from mmengine.visualization import Visualizer, TensorboardVisBackend
 from torch.optim import AdamW
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModel, AutoTokenizer
 
 from xtuner.dataset.collate_fns.preference_collate_fn import preference_collate_fn
 from xtuner.dataset.preference_dataset import build_preference_dataset_stream
@@ -24,7 +24,7 @@ from xtuner.parallel.sequence import SequenceParallelSampler
 #                          PART 1  Settings                           #
 #######################################################################
 # Model
-pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/zouyicheng/xtuner/model/internlm2_5-1_8b"
+pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/zouyicheng/xtuner/work_dirs/RM_PT_internlm2_5_1_8b_DATA_140m_single_mix_Node_48_LR_9_1e_5/iter_76000_hf"
 use_varlen_attn = True
 reward_token_id = 92527  # use [UNUSED_TOKEN_130] as reward token
 loss_type = "ranking"
@@ -35,8 +35,8 @@ max_length = 16384
 max_response_length = 5120
 max_packed_length = 32768
 avg_num_per_pack = 5
-data_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/data/train"
-data_num = 142595996
+data_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/data/decay"
+data_num = 20400000
 
 # parallel
 sequence_parallel_size = 1
@@ -48,11 +48,11 @@ accumulative_counts *= sequence_parallel_size
 dataloader_num_workers = 0
 max_epochs = 1  # reward model should not be trained for more than 1 epoch to avoid overfitting  # noqa: E501
 optim_type = AdamW
-lr = 9.1e-5
+lr = 9.1e-6
 betas = (0.9, 0.95)
 weight_decay = 0
 max_norm = 1  # grad clip
-warmup_ratio = 0.03
+warmup_ratio = 0.0
 
 # Save
 save_steps = 100
@@ -78,7 +78,7 @@ model = dict(
     loss_type=loss_type,
     penalty_type=penalty_type,
     llm=dict(
-        type=AutoModelForCausalLM.from_pretrained,
+        type=AutoModel.from_pretrained,
         pretrained_model_name_or_path=pretrained_model_name_or_path,
         trust_remote_code=True,
     ),
@@ -136,16 +136,8 @@ optim_wrapper = dict(
 # More information: https://github.com/open-mmlab/mmengine/blob/main/docs/en/tutorials/param_scheduler.md  # noqa: E501
 param_scheduler = [
     dict(
-        type=LinearLR,
-        start_factor=lr * 0.1,
-        by_epoch=True,
-        begin=0,
-        end=warmup_ratio * max_epochs,
-        convert_to_iter_based=True,
-    ),
-    dict(
         type=CosineAnnealingLR,
-        eta_min=lr * 0.1,
+        eta_min=lr * 0.01,
         by_epoch=True,
         begin=warmup_ratio * max_epochs,
         end=max_epochs,
