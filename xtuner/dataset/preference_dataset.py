@@ -453,7 +453,7 @@ class PackedDatasetWrapperStream(IterableDataset):
         # hard coded!  # noqa
         self.avg_num_per_pack = avg_num_per_pack
 
-        self.data_num = len(dataset) // self.avg_num_per_pack
+        self.data_num = int(len(dataset) // self.avg_num_per_pack)
 
     def __len__(self):
         return self.data_num

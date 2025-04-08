@@ -36,7 +36,7 @@ max_response_length = 5120
 max_packed_length = 32768
 avg_num_per_pack = 5
 data_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/data/train"
-data_num = 142595996
+data_num = 142595996  # step = data num / (gpu num * avg_num_per_pack * accumulative_counts)
 
 # parallel
 sequence_parallel_size = 1

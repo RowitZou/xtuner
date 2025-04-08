@@ -25,6 +25,7 @@ from xtuner.parallel.sequence import SequenceParallelSampler
 #######################################################################
 # Model
 
+# pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/rm/RM_PT_internlm2_5_1_8b_DATA_9_9m_single_mix_Node_8_LR_1e_5_STEP_32000_hf"
 pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/zouyicheng/xtuner/work_dirs/RM_PT_internlm2_5_1_8b_DATA_20m_single_mix_Node_40_LR_9_1e_6_decay/iter_12900_hf"
 use_varlen_attn = True
 reward_token_id = 92527  # use [UNUSED_TOKEN_130] as reward token
@@ -48,8 +49,8 @@ accumulative_counts *= sequence_parallel_size
 dataloader_num_workers = 0
 max_epochs = 1  # reward model should not be trained for more than 1 epoch to avoid overfitting  # noqa: E501
 optim_type = AdamW
-lr = 9e-6
-betas = (0.9, 0.999)
+lr = 9e-5
+betas = (0.9, 0.95)
 weight_decay = 0
 max_norm = 1  # grad clip
 warmup_ratio = 0.03
@@ -134,7 +135,7 @@ optim_wrapper = dict(
 param_scheduler = [
     dict(
         type=LinearLR,
-        start_factor=1e-5,
+        start_factor=lr * 0.1,
         by_epoch=True,
         begin=0,
         end=warmup_ratio * max_epochs,
@@ -142,7 +143,7 @@ param_scheduler = [
     ),
     dict(
         type=CosineAnnealingLR,
-        eta_min=0.0,
+        eta_min=lr * 0.1,
         by_epoch=True,
         begin=warmup_ratio * max_epochs,
         end=max_epochs,
