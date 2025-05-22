@@ -40,6 +40,7 @@ def preference_collate_fn(
             f"If utilizing varlen attention, the batch size should be"
             f" set to 1, but got {len(instances)}"
         )
+        data_idxes = instances[0]["raw_data_idx"]
 
     for example in instances:
         input_ids.append(torch.LongTensor(example["input_ids"]))
@@ -96,6 +97,7 @@ def preference_collate_fn(
             "position_ids": position_ids,
             "labels": labels,
             "max_seqlen": max_seqlen,
+            "data_idxes": data_idxes,
         }
     else:
         data_dict = {

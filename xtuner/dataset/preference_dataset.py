@@ -11,8 +11,7 @@ import numpy as np
 import torch.distributed as dist
 import tqdm
 from datasets import Dataset as HFDataset
-from datasets import IterableDataset as HFIterableDataset
-from datasets import concatenate_datasets
+from datasets import concatenate_datasets, load_dataset, DatasetDict
 from mmengine.config import Config, ConfigDict
 from mmengine.logging import print_log
 from mmengine.utils.misc import get_object_from_string
@@ -155,6 +154,7 @@ def tokenize(
 
 
 def tokenize_rmp(
+    idx: int,
     pair: str,
     tokenizer: AutoTokenizer,
     max_length: int,
@@ -239,6 +239,7 @@ def tokenize_rmp(
         raise NotImplementedError
 
     return {
+        'idx': idx,
         'chosen_ids': chosen_ids,
         'rejected_ids': rejected_ids,
         'chosen_labels': chosen_labels,
@@ -295,10 +296,120 @@ class PreferenceDataset(Dataset):
         return self.tokenized_pairs[idx]
 
 
+class PretrainPreferenceDatasetStream(IterableDataset):
+    def __init__(
+        self,
+        root_path: str,
+        rank: Optional[int] = None,
+        world_size: Optional[int] = None,
+        work_dir_name: Optional[str] = None,
+    ) -> None:
+        super().__init__()
+        self.work_dir_name = os.path.join("/cpfs01/shared/alillm_hs/zouyicheng/xtuner/work_dirs", work_dir_name, "last_ckpt_data_idxes")
+        self.rank = 0 if rank is None else rank
+        self.world_size = 1 if world_size is None else world_size
+
+        self.dataset_dict = DatasetDict({
+            subdir: load_dataset(
+                os.path.join(root_path, subdir),
+                streaming=True
+            )["train"]
+            for subdir in os.listdir(root_path)
+            if os.path.isdir(os.path.join(root_path, subdir))
+        })
+
+        self.dataset_shard_num_map = {'0_1~100_chat_3~4': 10200000,
+                                      '10_1~100_chat_23~24': 10200000,
+                                      '11_1~100_chat_25~26': 10200000,
+                                      '12_1~100_chat_27~28': 10200000,
+                                      '13_1~100_chat_29~30': 10200000,
+                                      '14_1~100_chat_31~32': 10200000,
+                                      '15_1~100_chat_33~34': 10200000,
+                                      '16_1~100_chat_35~36': 10200000,
+                                      '17_1~100_chat_37~38': 10200000,
+                                      '18_1~100_chat_39~40': 10200000,
+                                      '19_1~100_chat_41~42': 10200000,
+                                      '1_1~100_chat_5~6': 10200000,
+                                      '20_1~100_chat_43~44': 10200000,
+                                      '21_1~100_chat_45~46': 10200000,
+                                      '22_1~100_chat_47~48': 10200000,
+                                      '23_1~100_chat_49~50': 10200000,
+                                      '24_1~100_chat_51~52': 10200000,
+                                      '25_1~100_chat_53~54': 10200000,
+                                      '26_1~100_chat_55~56': 10200000,
+                                      '27_1~100_chat_57~58': 10200000,
+                                      '28_1~100_chat_59~60': 10200000,
+                                      '29_1~100_chat_61~62': 10200000,
+                                      '2_1~100_chat_7~8': 10200000,
+                                      '30_1~100_chat_63~64': 10200000,
+                                      '31_1~100_chat_65~66': 10200000,
+                                      '32_1~100_chat_67~68': 10200000,
+                                      '33_1~100_chat_69~70': 10200000,
+                                      '34_1~100_chat_71~72': 10200000,
+                                      '35_1~100_chat_73~74': 10200000,
+                                      '36_1~100_chat_75~76': 10199380,
+                                      '37_1~100_chat_77~78': 10200000,
+                                      '38_1~100_chat_79~80': 10200000,
+                                      '39_1~100_chat_81~82': 10200000,
+                                      '3_1~100_chat_9~10': 10200000,
+                                      '40_1~100_chat_83~84': 10200000,
+                                      '41_1~100_chat_85~86': 10200000,
+                                      '42_1~100_chat_87~88': 10200000,
+                                      '43_1~100_chat_89~90': 10200000,
+                                      '44_1~100_chat_91~92': 10200000,
+                                      '45_1~100_chat_93~94': 10200000,
+                                      '46_1~100_chat_95~96': 10200000,
+                                      '47_1~100_chat_97~98': 10200000,
+                                      '48_1~100_chat_99~100': 10190000,
+                                      '4_1~100_chat_11~12': 10200000,
+                                      '5_1~100_chat_13~14': 10200000,
+                                      '6_1~100_chat_15~16': 10200000,
+                                      '7_1~100_chat_17~18': 10200000,
+                                      '8_1~100_chat_19~20': 10200000,
+                                      '9_1~100_chat_21~22': 10200000,
+                                      'p_1~99_chat_1~2': 9995996}
+
+        last_data_resume_record = os.path.join(self.work_dir_name, str(self.rank))
+        if os.path.exists(last_data_resume_record):
+            with open(last_data_resume_record, "r") as f:
+                last_batch_idxes = json.loads(f.readline())
+            print(
+                f"Rank {self.rank} resumes data from {last_data_resume_record}: {str(last_batch_idxes)}"
+            )
+            offset = self.world_size - 1 - self.rank
+            self.last_batch_idx = last_batch_idxes[-1] + offset
+        else:
+            self.last_batch_idx = -1
+
+        self.data_offset = self.last_batch_idx + 1
+
+    def __iter__(self):
+
+        for name, num in self.dataset_shard_num_map.items():
+            if self.last_batch_idx + 1 >= num:
+                self.last_batch_idx -= num
+                print(f"Skipping {num} samples of file {name} in rank {self.rank}.")
+                continue
+            dataset = self.dataset_dict[name]
+            for i, data in enumerate(dataset):
+                if i <= self.last_batch_idx:
+                    if i == self.last_batch_idx:
+                        print(
+                            f"Skipping data to sample {i + 1} for rank {self.rank}."
+                        )
+                        self.last_batch_idx = -1
+                    elif i > 0 and i % 1000000 == 0:
+                        print(
+                            f"Enumerate file {name} and skipped {i} samples in rank {self.rank}."
+                        )
+                    continue
+                yield data
+
+
 class PreferenceDatasetStream(IterableDataset):
     def __init__(
         self,
-        dataset: HFIterableDataset,
+        dataset,
         tokenizer: AutoTokenizer,
         max_length: int,
         max_response_length: int,
@@ -332,6 +443,11 @@ class PreferenceDatasetStream(IterableDataset):
         self.rank = 0 if rank is None else rank
         self.world_size = 1 if world_size is None else world_size
 
+        if hasattr(self.dataset, "data_offset"):
+            self.data_offset = self.dataset.data_offset
+        else:
+            self.data_offset = 0
+
     def __len__(self):
         return self.data_num // self.world_size
 
@@ -351,6 +467,7 @@ class PreferenceDatasetStream(IterableDataset):
 
             if i % self.world_size == self.rank:
                 yield tokenize_rmp(
+                    self.data_offset + i,
                     data,
                     tokenizer=self.tokenizer,
                     max_length=self.max_length,
@@ -519,6 +636,7 @@ class PackedDatasetWrapperStream(IterableDataset):
         position_ids = []
         labels = []
         cu_seqlens = [0]
+        idxs = []
 
         for pair in pairs:
             chosen_len = len(pair["chosen_ids"])
@@ -537,11 +655,14 @@ class PackedDatasetWrapperStream(IterableDataset):
             cu_seqlens.append(cu_seqlens[-1] + chosen_len)
             cu_seqlens.append(cu_seqlens[-1] + rejected_len)
 
+            idxs.append(pair["idx"])
+
         return {
             "input_ids": input_ids,
             "labels": labels,
             "position_ids": position_ids,
             "cumulative_len": cu_seqlens,
+            "raw_data_idx": idxs,
         }
 
 
@@ -653,6 +774,8 @@ def build_preference_dataset_stream(
     avg_num_per_pack: int = 5,
     shuffle_before_pack: bool = True,
     data_num: int = 0,
+    if_pretrain: bool = False,
+    work_dir_name: str = None,
 ) -> Dataset:
 
     using_dist = dist.is_available() and dist.is_initialized()
@@ -670,7 +793,15 @@ def build_preference_dataset_stream(
     ):
         tokenizer = BUILDER.build(tokenizer)
 
-    dataset = build_origin_dataset(dataset, split="train")
+    if if_pretrain:
+        dataset = PretrainPreferenceDatasetStream(
+            dataset["path"],
+            rank=rank,
+            world_size=world_size,
+            work_dir_name=work_dir_name,
+        )
+    else:
+        dataset = build_origin_dataset(dataset, split="train")
 
     if dataset_map_fn is not None:
         dataset = map_dataset(dataset, dataset_map_fn, map_num_proc=num_proc)

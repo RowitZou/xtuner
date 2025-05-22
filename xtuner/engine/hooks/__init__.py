@@ -4,6 +4,7 @@ from .evaluate_chat_hook import EvaluateChatHook
 from .hf_checkpoint_hook import HFCheckpointHook
 from .throughput_hook import ThroughputHook
 from .varlen_attn_args_to_messagehub_hook import VarlenAttnArgsToMessageHubHook
+from .data_resume_hook import DataResumeHook
 
 __all__ = [
     "EvaluateChatHook",
@@ -11,4 +12,5 @@ __all__ = [
     "ThroughputHook",
     "VarlenAttnArgsToMessageHubHook",
     "HFCheckpointHook",
+    "DataResumeHook",
 ]

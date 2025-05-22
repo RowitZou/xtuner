@@ -8,15 +8,14 @@ from mmengine.hooks import (
     LoggerHook,
     ParamSchedulerHook,
 )
-from pathlib import Path
 from mmengine.optim import AmpOptimWrapper, CosineAnnealingLR, LinearLR
 from mmengine.visualization import Visualizer, TensorboardVisBackend
 from torch.optim import AdamW
 from transformers import AutoModel, AutoTokenizer
 
 from xtuner.dataset.collate_fns.preference_collate_fn import preference_collate_fn
-from xtuner.dataset.preference_dataset import build_preference_dataset_stream
-from xtuner.engine.hooks import VarlenAttnArgsToMessageHubHook, DataResumeHook
+from xtuner.dataset.preference_dataset import build_preference_dataset
+from xtuner.engine.hooks import VarlenAttnArgsToMessageHubHook
 from xtuner.engine.runner import TrainLoop
 from xtuner.model.reward import RewardModel
 from xtuner.parallel.sequence import SequenceParallelSampler
@@ -25,7 +24,9 @@ from xtuner.parallel.sequence import SequenceParallelSampler
 #                          PART 1  Settings                           #
 #######################################################################
 # Model
-pretrained_model_name_or_path = "/cpfs01/shared/alillm_hs/zouyicheng/xtuner/model/internlm2_5-7b"
+
+# pretrained_model_name_or_path = "/cpfs01/shared/llm_ddd/zouyicheng/rm_pretrain/rm/RM_PT_internlm2_5_1_8b_DATA_9_9m_single_mix_Node_8_LR_1e_5_STEP_32000_hf"
+pretrained_model_name_or_path = "/cpfs01/shared/alillm_hs/zouyicheng/rm_pretrain/rm/RM_PT_internlm2_5_7b_DATA_510m_single_mix_Node_57_LR_1_45e_5_STEP_32000_hf"
 use_varlen_attn = True
 reward_token_id = 92527  # use [UNUSED_TOKEN_130] as reward token
 loss_type = "ranking"
@@ -33,11 +34,10 @@ penalty_type = "none"
 
 # Data
 max_length = 16384
-max_response_length = 5120
+max_response_length = 4096
 max_packed_length = 32768
-avg_num_per_pack = 5
-data_path = "/cpfs01/shared/alillm_hs/zouyicheng/rm_pretrain/data/train"
-data_num = 510000000  # step = data num / (gpu num * avg_num_per_pack * accumulative_counts)
+data_path = "/cpfs01/shared/alillm_hs/zouyicheng/rm_pretrain/data/preference/single_source_prompt_sft/mixed/HH_puyu"
+data_num = 150221
 
 # parallel
 sequence_parallel_size = 1
@@ -49,15 +49,15 @@ accumulative_counts *= sequence_parallel_size
 dataloader_num_workers = 0
 max_epochs = 1  # reward model should not be trained for more than 1 epoch to avoid overfitting  # noqa: E501
 optim_type = AdamW
-lr = 1.45e-5
+lr = 1e-5
 betas = (0.9, 0.95)
 weight_decay = 0
 max_norm = 1  # grad clip
 warmup_ratio = 0.03
 
 # Save
-save_steps = 200
-save_total_limit = 10  # Maximum checkpoints to keep (-1 means unlimited)
+save_steps = 1000
+save_total_limit = -1  # Maximum checkpoints to keep (-1 means unlimited)
 
 # Evaluate the generation performance during the training
 # TODO: eval
@@ -91,11 +91,10 @@ model = dict(
 sampler = SequenceParallelSampler if sequence_parallel_size > 1 else DefaultSampler
 
 train_dataset = dict(
-    type=build_preference_dataset_stream,
+    type=build_preference_dataset,
     dataset=dict(
         type=load_dataset,
         path=data_path,
-        streaming=True
     ),
     tokenizer=tokenizer,
     max_length=max_length,
@@ -107,18 +106,14 @@ train_dataset = dict(
     num_proc=32,
     use_varlen_attn=use_varlen_attn,
     max_packed_length=max_packed_length,
-    avg_num_per_pack=avg_num_per_pack,
     shuffle_before_pack=True,
-    data_num=data_num,
-    if_pretrain=True,
-    work_dir_name=Path(__file__).stem
 )
 
 train_dataloader = dict(
     batch_size=batch_size,
-    drop_last=True,
     num_workers=dataloader_num_workers,
     dataset=train_dataset,
+    sampler=dict(type=DefaultSampler, shuffle=True),
     collate_fn=dict(type=preference_collate_fn, use_varlen_attn=use_varlen_attn),
 )
 
@@ -163,11 +158,7 @@ train_cfg = dict(type=TrainLoop, max_epochs=max_epochs)
 #                           PART 5  Runtime                           #
 #######################################################################
 # Log the dialogue periodically during the training process, optional
-custom_hooks = [
-    dict(type=DataResumeHook,
-         by_epoch=False,
-         interval=save_steps,),
-]
+custom_hooks = []
 
 if use_varlen_attn:
     custom_hooks += [dict(type=VarlenAttnArgsToMessageHubHook)]
@@ -214,7 +205,7 @@ log_level = "INFO"
 load_from = None
 
 # whether to resume training from the loaded checkpoint
-resume = True
+resume = False
 
 # Defaults to use random seed and disable `deterministic`
 randomness = dict(seed=None, deterministic=False)

@@ -372,10 +372,13 @@ class RewardModel(BaseModel):
         return data
 
     def compute_loss(self, data, labels=None):
+        data_idxes = data.pop("data_idxes", None)
         if get_sequence_parallel_world_size() > 1:
-            data = self._split_for_sequence_parallel(data)
-
-        hidden_states = self.llm(**data)[0]
+            splited_data = self._split_for_sequence_parallel(data)
+            hidden_states = self.llm(**splited_data)[0]
+        else:
+            hidden_states = self.llm(**data)[0]
+        data["data_idxes"] = data_idxes
         logits = self.v_head(hidden_states)
 
         if get_sequence_parallel_world_size() > 1:
