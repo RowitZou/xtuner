@@ -1,6 +1,6 @@
-nodes=2
+nodes=57
 
-config="RM_PT_internlm2_5_7b_DATA_510m_single_mix_Node_2_LR_1_45e_5"
+config="RM_PT_internlm2_5_7b_DATA_510m_single_mix_Node_32_LR_1_45e_5"
 
 
 TARGET_FILE=/cpfs01/shared/alillm_hs/zouyicheng/xtuner/addr/addr_${config}.txt

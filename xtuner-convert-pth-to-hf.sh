@@ -20,9 +20,9 @@ function commit {
 
     cmd=". /cpfs01/shared/alillm_hs/zouyicheng/.bashrc && conda activate xtuner && \
 cd /cpfs01/shared/alillm_hs/zouyicheng/xtuner && PYTHONPATH=. python /cpfs01/shared/alillm_hs/zouyicheng/xtuner/xtuner/tools/model_converters/pth_to_hf.py \
-/cpfs01/shared/alillm_hs/zouyicheng/xtuner/work_dirs/RM_SFT_reward_pt_7b_32000_DATA_HH_puyu_mixed_Node_2_LR_1e-5/RM_SFT_reward_pt_7b_32000_DATA_HH_puyu_mixed_Node_2_LR_1e-5.py \
-/cpfs01/shared/alillm_hs/zouyicheng/xtuner/work_dirs/RM_SFT_reward_pt_7b_32000_DATA_HH_puyu_mixed_Node_2_LR_1e-5/iter_905.pth  \
-/cpfs01/shared/alillm_hs/zouyicheng/xtuner/work_dirs/RM_SFT_reward_pt_7b_32000_DATA_HH_puyu_mixed_Node_2_LR_1e-5/iter_905_hf"
+/cpfs01/shared/alillm_hs/zouyicheng/xtuner/work_dirs/RM_SFT_reward_pt_7b_45000_DATA_HH_puyu_mixed_Node_2_LR_1e-5/RM_SFT_reward_pt_7b_45000_DATA_HH_puyu_mixed_Node_2_LR_1e-5.py \
+/cpfs01/shared/alillm_hs/zouyicheng/xtuner/work_dirs/RM_SFT_reward_pt_7b_45000_DATA_HH_puyu_mixed_Node_2_LR_1e-5/iter_905.pth  \
+/cpfs01/shared/alillm_hs/zouyicheng/xtuner/work_dirs/RM_SFT_reward_pt_7b_45000_DATA_HH_puyu_mixed_Node_2_LR_1e-5/iter_905_hf"
 
     /cpfs01/shared/public/dlc create job --config /cpfs01/shared/public/zouyicheng/dlc.config \
     --name $name \

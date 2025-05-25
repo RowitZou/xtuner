@@ -154,8 +154,8 @@ def tokenize(
 
 
 def tokenize_rmp(
-    idx: int,
     pair: str,
+    idx: int,
     tokenizer: AutoTokenizer,
     max_length: int,
     max_response_length: int,
@@ -275,6 +275,7 @@ class PreferenceDataset(Dataset):
         for tokenized_pair in _multi_progress(
             partial(
                 tokenize_rmp,
+                idx=-1,
                 tokenizer=tokenizer,
                 max_length=max_length,
                 max_response_length=max_response_length,
@@ -467,8 +468,8 @@ class PreferenceDatasetStream(IterableDataset):
 
             if i % self.world_size == self.rank:
                 yield tokenize_rmp(
-                    self.data_offset + i,
                     data,
+                    self.data_offset + i,
                     tokenizer=self.tokenizer,
                     max_length=self.max_length,
                     max_response_length=self.max_response_length,
@@ -533,7 +534,7 @@ class PackedDatasetWrapper(Dataset):
 
     def __getitem__(self, index):
         pairs = self.data[index]
-        input_ids, cu_seqlens, position_ids, labels = [], [0], [], []
+        input_ids, cu_seqlens, position_ids, labels, idxs = [], [0], [], [], []
 
         for pair in pairs:
             input_ids.extend(pair["chosen_ids"])
@@ -548,11 +549,14 @@ class PackedDatasetWrapper(Dataset):
             cu_seqlens.append(cu_seqlens[-1] + len(pair["chosen_ids"]))
             cu_seqlens.append(cu_seqlens[-1] + len(pair["rejected_ids"]))
 
+            idxs.append(pair["idx"])
+
         return {
             "input_ids": input_ids,
             "labels": labels,
             "position_ids": position_ids,
             "cumulative_len": cu_seqlens,
+            "raw_data_idx": idxs,
         }
 
 

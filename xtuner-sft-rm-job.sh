@@ -1,6 +1,6 @@
 nodes=2
 
-config="RM_SFT_reward_pt_7b_32000_DATA_HH_puyu_mixed_Node_2_LR_1e-5"
+config="RM_SFT_reward_pt_7b_45000_DATA_HH_puyu_mixed_Node_2_LR_1e-5"
 
 
 TARGET_FILE=/cpfs01/shared/alillm_hs/zouyicheng/xtuner/addr/addr_${config}.txt

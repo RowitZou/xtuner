@@ -10,6 +10,16 @@ from mmengine.registry import LOOPS
 from mmengine.runner.base_loop import BaseLoop
 from mmengine.runner.utils import calc_dynamic_intervals
 
+try:
+    from c4d_perftracker_collector.PerfTracker import PerfTracker
+    my_tracer = PerfTracker()
+    print_log(
+        'PerfTracker is imported successfully, '
+        'you can use it to track the performance of your model.',
+        logger='current')
+except ImportError:
+    my_tracer = None
+
 
 class _InfiniteDataloaderIterator:
     """An infinite dataloader iterator wrapper for IterBasedTrainLoop.
@@ -152,6 +162,9 @@ class IterBasedTrainLoopStream(BaseLoop):
                     and (self._iter % self.val_interval == 0
                          or self._iter == self._max_iters)):
                 self.runner.val_loop.run()
+
+            if my_tracer is not None:
+                my_tracer.step()  # 标记一个step
 
         self.runner.call_hook('after_train_epoch')
         self.runner.call_hook('after_train')

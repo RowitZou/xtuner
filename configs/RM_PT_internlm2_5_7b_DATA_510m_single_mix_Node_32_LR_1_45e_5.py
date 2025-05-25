@@ -8,6 +8,7 @@ from mmengine.hooks import (
     LoggerHook,
     ParamSchedulerHook,
 )
+from pathlib import Path
 from mmengine.optim import AmpOptimWrapper, CosineAnnealingLR, LinearLR
 from mmengine.visualization import Visualizer, TensorboardVisBackend
 from torch.optim import AdamW
@@ -15,7 +16,7 @@ from transformers import AutoModel, AutoTokenizer
 
 from xtuner.dataset.collate_fns.preference_collate_fn import preference_collate_fn
 from xtuner.dataset.preference_dataset import build_preference_dataset_stream
-from xtuner.engine.hooks import VarlenAttnArgsToMessageHubHook
+from xtuner.engine.hooks import VarlenAttnArgsToMessageHubHook, DataResumeHook
 from xtuner.engine.runner import TrainLoop
 from xtuner.model.reward import RewardModel
 from xtuner.parallel.sequence import SequenceParallelSampler
@@ -33,8 +34,8 @@ penalty_type = "none"
 # Data
 max_length = 16384
 max_response_length = 5120
-max_packed_length = 65536
-avg_num_per_pack = 10
+max_packed_length = 32768
+avg_num_per_pack = 5
 data_path = "/cpfs01/shared/alillm_hs/zouyicheng/rm_pretrain/data/train"
 data_num = 510000000  # step = data num / (gpu num * avg_num_per_pack * accumulative_counts)
 
@@ -43,7 +44,7 @@ sequence_parallel_size = 1
 
 # Scheduler & Optimizer
 batch_size = 1  # per_device
-accumulative_counts = 1
+accumulative_counts = 2
 accumulative_counts *= sequence_parallel_size
 dataloader_num_workers = 0
 max_epochs = 1  # reward model should not be trained for more than 1 epoch to avoid overfitting  # noqa: E501
@@ -55,7 +56,7 @@ max_norm = 1  # grad clip
 warmup_ratio = 0.03
 
 # Save
-save_steps = 100
+save_steps = 200
 save_total_limit = 10  # Maximum checkpoints to keep (-1 means unlimited)
 
 # Evaluate the generation performance during the training
@@ -109,6 +110,8 @@ train_dataset = dict(
     avg_num_per_pack=avg_num_per_pack,
     shuffle_before_pack=True,
     data_num=data_num,
+    if_pretrain=True,
+    work_dir_name=Path(__file__).stem
 )
 
 train_dataloader = dict(
@@ -160,7 +163,11 @@ train_cfg = dict(type=TrainLoop, max_epochs=max_epochs)
 #                           PART 5  Runtime                           #
 #######################################################################
 # Log the dialogue periodically during the training process, optional
-custom_hooks = []
+custom_hooks = [
+    dict(type=DataResumeHook,
+         by_epoch=False,
+         interval=save_steps,),
+]
 
 if use_varlen_attn:
     custom_hooks += [dict(type=VarlenAttnArgsToMessageHubHook)]
