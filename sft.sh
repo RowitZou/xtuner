@@ -25,7 +25,7 @@ function commit {
     --worker_cpu $node_cpus \
     --worker_gpu $num_gpus \
     --worker_memory $node_mems \
-    --workspace_id ws1lu4iyv5yjjyvp \
+    --workspace_id ws1ujefpjyfgqjwp \
     --data_sources data1ewbw1ztmmyh,data1bgvj0n14to0,datasnlgjr5gyk0c,data1ubhj4714msc,data9qbxtzsqaa1f,data1o8qdjce0kd0 \
     --worker_image pjlab-shanghai-acr-registry-vpc.cn-shanghai.cr.aliyuncs.com/pjlab-eflops/lishuaibin:lishuaibin-xpuyu-trainrlhf \
     --worker_shared_memory 128Gi \
